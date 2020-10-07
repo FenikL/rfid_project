@@ -1,0 +1,55 @@
+QUERY_LENGTH = 22
+QREP_LENGTH = 4
+RN16_LENGTH = 16
+ACK_LENGTH = 18
+EPCID_LENGTH = 128
+TID_LENGTH = 64 + 1 + 16 + 16 # include CRC16 and RN16
+REQ_RN_LENGTH = 40
+NEW_RN16_LENGTH = 32 # +CRC16
+READ_LENGTH = 58
+
+def variables(Tari, M, TRext):
+    micro = 0.000001
+    Tari = Tari * micro
+    TRcal = 3 * Tari
+    BLF = 8 / TRcal
+    Tpri = 1 / BLF
+    RTcal = 2.75 * Tari
+    T1 = max(RTcal, 10 * Tpri) * 1.1 + 2 * micro
+    T2 = 20 * Tpri
+    T3 = T1
+
+    READER_BITRATE = 2 / RTcal
+    TAG_BITRATE = BLF / M
+
+    T_SYNC_PREAMBLE = 12.5 * micro + Tari + RTcal
+    T_FULL_PREAMBLE = T_SYNC_PREAMBLE + TRcal
+    if TRext == 0:
+        if M == 1:
+            TAG_PREAMBLE_LEN = 6
+        else:
+            TAG_PREAMBLE_LEN = 10
+    else:
+        if M ==1:
+            TAG_PREAMBLE_LEN = 18
+        else:
+            TAG_PREAMBLE_LEN = 22
+
+    T_QUERY = (QUERY_LENGTH / READER_BITRATE) + T_FULL_PREAMBLE
+    T_QREP = (QREP_LENGTH / READER_BITRATE) + T_SYNC_PREAMBLE
+    T_ACK = (ACK_LENGTH / READER_BITRATE) + T_SYNC_PREAMBLE
+    T_REQ_RN16 = (NEW_RN16_LENGTH / READER_BITRATE) + T_SYNC_PREAMBLE
+    T_READ = (READ_LENGTH / READER_BITRATE) + T_SYNC_PREAMBLE
+    T_RN16 = (RN16_LENGTH + TAG_PREAMBLE_LEN + 1) / TAG_BITRATE  # + 1 - for end-of-signalling (suffix)
+    T_NEW_RN16 = (NEW_RN16_LENGTH + TAG_PREAMBLE_LEN + 1) / TAG_BITRATE
+    T_EPCID = (EPCID_LENGTH + TAG_PREAMBLE_LEN + 1) / TAG_BITRATE  # + 1 - -//-//-
+    T_TID = (TID_LENGTH + TAG_PREAMBLE_LEN + 1) / TAG_BITRATE
+
+    T_EMPTY_SLOT = T_QREP + T1 + T3
+    T_SUCCESS_SLOT = T_QREP + T1 + T_RN16 + T2 + T_ACK + T1 + T_EPCID + T2
+    T_INVALID_RN16 = T_QREP + T1 + T_RN16 + T2 + T_ACK + T1 + T3
+    T_COLLIDED_SLOT = T_QREP + T1 + T_RN16 + T2
+    T_SUCCESS_TID = T_REQ_RN16 + T1 + T_NEW_RN16 + T2 + T_READ + T1 +T_TID + T2
+    T_INVALID_NEW_RN16 = T_REQ_RN16 + T1 + T_NEW_RN16 + T2
+
+    return T_EMPTY_SLOT, T_SUCCESS_SLOT, T_INVALID_RN16, T_COLLIDED_SLOT, T_SUCCESS_TID, T_INVALID_NEW_RN16, T_QUERY, T_QREP
