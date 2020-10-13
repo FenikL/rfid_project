@@ -1,6 +1,4 @@
 # content of test_sample.py
-import pytest
-
 import model
 
 def test_probability():
