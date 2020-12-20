@@ -4,73 +4,84 @@ from collections import namedtuple
 import numpy as np
 
 import variables
-
+from variables import NUM_TAGS
 ProbRet = namedtuple('ProbRet', ('probability', 'num_cars',
                      'num_rounds', 'round_duration'))
+ReturnForRn16 = namedtuple('ReturnForRn16', ['time', 'last_event_is_success'])
+ReturnForId = namedtuple('ReturnForId', ['last_event_is_success', 'identified'])
 
 NUM_ITERATIONS = 100
 
-def run_model(interval, velocity, area_length=8, ber=0, number_of_tags=30, Q=2,
-                    tid_is_true=False, tari=6.25, num_of_sym_per_bit=1, trext=0):
-    trcal = variables.get_trcal(tari)
-    rtcal = variables.get_trcal(tari)
-    blf = variables.get_blf(trcal)
-    tpri = variables.get_tpri(blf)
-    t1_and_t2 = variables.get_sum_of_t1_and_t2(rtcal, tpri)
-    t1_and_t3 = variables.get_sum_of_t1_and_t3(rtcal, tpri)
+def run_model(velocity, ber=0, q_bit=2, tid_is_on=False,
+              tari=6.25, num_of_sym_per_bit=1, trext=0):
+    variables_by_tari = variables.get_variables_from_tari(tari)
+    bitrate = variables.get_bitrate(variables_by_tari.rtcal,
+                                    variables_by_tari.blf,
+                                    num_of_sym_per_bit)
+    preamble = variables.get_preamble(tari,
+                                      variables_by_tari.rtcal,
+                                      variables_by_tari.trcal,
+                                      trext, num_of_sym_per_bit)
+    duration_from_reader = variables.get_duration_of_mes_from_reader(bitrate.reader_bitrate,
+                                                                     preamble.t_full_preamble,
+                                                                     preamble.t_sync_preamble)
+    duration_from_tag = variables.get_duration_of_mes_from_tag(preamble.tag_preamble_len,
+                                                               bitrate.tag_bitrate)
+    duration_event = variables.get_duration_event(duration_from_reader,
+                                                  duration_from_tag,
+                                                  variables_by_tari.t1_and_t2,
+                                                  variables_by_tari.t1_and_t3)
+    probability_success_message = variables.get_prob_of_trans_without_error(ber)
+    variables_for_time = variables.get_variables_for_times_in_area(velocity)
 
-    reader_bitrate = variables.get_reader_bitrate(rtcal)
-    tag_bitrate = variables.get_tag_bitrate(blf, num_of_sym_per_bit)
-    tag_preamble_len = variables.get_tag_preamble_len(trext, num_of_sym_per_bit)
-    t_sync_preamble = variables.get_t_sync_preamble(tari, rtcal)
-    t_full_preamble = variables.get_t_full_preamble(t_sync_preamble, trcal)
-
-    t_query = variables.get_t_query(reader_bitrate, t_full_preamble)
-    t_qrep = variables.get_t_qrep(reader_bitrate, t_sync_preamble)
-    t_ack = variables.get_t_ack(reader_bitrate, t_sync_preamble)
-    t_req_rn = variables.get_t_req_rn(reader_bitrate, t_sync_preamble)
-    t_read = variables.get_t_read(reader_bitrate, t_sync_preamble)
-    t_rn16 = variables.get_t_rn16(tag_preamble_len, tag_bitrate)
-    t_new_rn16 = variables.get_t_new_rn16(tag_preamble_len, tag_bitrate)
-    t_epcid = variables.get_t_epcid(tag_preamble_len, tag_bitrate)
-    t_tid = variables.get_t_tid(tag_preamble_len, tag_bitrate)
-
-    t_empty_slot = variables.get_t_empty_slot(t_qrep, t1_and_t3)
-    t_success_slot = variables.get_t_success_slot(t_qrep, t1_and_t2, t_rn16, t_ack, t_epcid)
-    t_invalid_rn16 = variables.get_t_invalid_rn16(t_qrep, t1_and_t2, t_rn16, t_ack, t1_and_t3)
-    t_collided_slot = variables.get_t_collided_slot(t_qrep, t1_and_t2, t_rn16)
-    t_success_tid = variables.get_t_success_tid(t_req_rn, t1_and_t2, t_new_rn16, t_read, t_tid)
-    t_invalid_new_rn16 = variables.get_t_invalid_new_rn16(t_req_rn, t1_and_t2, t_new_rn16)
-
-    probability_success_rn16 = variables.get_probability_success_rn16(ber)
-    probability_success_epc = variables.get_probability_success_epc(ber)
-    probability_success_new_rn16 = variables.get_probability_success_new_rn16(ber)
-    probability_success_tid = variables.get_probability_success_tid(ber)
-    range_slot = 2 ** Q
-    num_identified = 0
-    num_identified_epc_and_tid = 0
+    range_slot = 2 ** q_bit
+    probability_this_iteration = []
     round_durations = []
     cars_in_area = []
     num_rounds = [0] * NUM_ITERATIONS
-    num_rounds_per_car = [0] * number_of_tags
+    num_rounds_per_car = [0] * NUM_TAGS
 
-    T = interval*(number_of_tags - 1) + area_length/velocity
-    time_enter = [interval * tag for tag in range(number_of_tags)]
-    time_exit = [(area_length/velocity) + time_enter[tag] for tag in range(number_of_tags)]
+    def start_rn16(time, probability_success_message,
+                   duration_event_success, duration_event_invalid):
+        if random.random() < probability_success_message:
+            time += duration_event_success
+            this_event_is_success = True
+        else:
+            time += duration_event_invalid
+            this_event_is_success = False
+        return ReturnForRn16(
+            time=time,
+            last_event_is_success=this_event_is_success
+            )
+
+    def start_identifier(last_event_is_success, probability_success_message, identified):
+        if last_event_is_success and random.random() < probability_success_message:
+            this_event_is_success = True
+            #tag = responding_tags[0]
+            identified = True
+        else:
+            this_event_is_success = False
+        return ReturnForId(
+            last_event_is_success=this_event_is_success,
+            identified=identified,
+            )
 
     for _ in range(NUM_ITERATIONS):
         time = 0
-        identified = [0] * number_of_tags
-        identified_epc_and_tid = [0] * number_of_tags
+        identified_epc = [0] * NUM_TAGS
+        identified_epc_and_tid = [0] * NUM_TAGS
 
-        while time < T:
-            tags_in_area = [tag for tag in range(number_of_tags) if time_enter[tag] < time < time_exit[tag]]
-            tags_slots = {tag: random.getrandbits(Q) for tag in tags_in_area}
+        while time < variables_for_time.total_duration:
+            tags_in_area = [
+                tag for tag in range(NUM_TAGS) if (
+                variables_for_time.time_enter[tag] < time < variables_for_time.time_exit[tag]
+                             )]
+            tags_slots = {tag: random.getrandbits(q_bit) for tag in tags_in_area}
             # -- Start of new round
             t_round_started = time
             # Since every round starts with QUERY, we can definitely add
             # (t_query - t_qrep) once at the beginning of each round:
-            time += t_query - t_qrep
+            time += duration_from_reader.query - duration_from_reader.qrep
 
             for tag in tags_in_area:
                 num_rounds_per_car[tag] += 1
@@ -79,37 +90,29 @@ def run_model(interval, velocity, area_length=8, ber=0, number_of_tags=30, Q=2,
                 num_responding_tags = len(responding_tags)
 
                 if num_responding_tags == 0:
-                    time += t_empty_slot
+                    time += duration_event.empty_slot
 
                 elif num_responding_tags == 1:
-
-                    if random.random() < probability_success_rn16:
-                        time += t_success_slot
-
-                        if random.random() < probability_success_epc:
-                            tag = responding_tags[0]
-
-                            if identified[tag] == 0:
-                                identified[tag] = 1
-                                num_identified += 1
-
-                            if tid_is_true:
-                                if random.random() < probability_success_new_rn16:
-                                    time += t_success_tid
-
-                                    if random.random() < probability_success_tid:
-                                        if identified_epc_and_tid[tag] == 0:
-                                            identified_epc_and_tid[tag] = 1
-                                            num_identified_epc_and_tid += 1
-
-                                else:
-                                    time += t_invalid_new_rn16
-
-                    else:
-                        time += t_invalid_rn16
+                    tag = responding_tags[0]
+                    rn16 = start_rn16(time, probability_success_message.rn16,
+                                      duration_event.success_slot, duration_event.invalid_rn16)
+                    epcid = start_identifier(rn16.last_event_is_success,
+                                             probability_success_message.epcid, identified_epc[tag])
+                    time = rn16.time
+                    identified_epc[tag] = epcid.identified
+                    if tid_is_on and epcid.last_event_is_success:
+                        new_rn16 = start_rn16(time,
+                                              probability_success_message.new_rn16,
+                                              duration_event.success_tid,
+                                              duration_event.invalid_new_rn16)
+                        tid = start_identifier(new_rn16.last_event_is_success,
+                                               probability_success_message.tid,
+                                               identified_epc_and_tid[tag])
+                        time = new_rn16.time
+                        identified_epc_and_tid[tag] = tid.identified
 
                 else:
-                    time += t_collided_slot
+                    time += duration_event.collided_slot
 
                 # Decrease slot counts:
                 for tag in tags_in_area:
@@ -125,18 +128,18 @@ def run_model(interval, velocity, area_length=8, ber=0, number_of_tags=30, Q=2,
             num_rounds[_] += 1
             if len(tags_in_area) != 0:
                 cars_in_area.append(len(tags_in_area))
+        if tid_is_on:
+            probability_this_iteration.append(np.mean(identified_epc_and_tid))
+        else:
+            probability_this_iteration.append(np.mean(identified_epc))
 
-    if tid_is_true:
-        p = num_identified_epc_and_tid / (number_of_tags*NUM_ITERATIONS)
-    else:
-        p = num_identified / (number_of_tags*NUM_ITERATIONS)
-
+    probability = np.mean(probability_this_iteration)
     round_durations = np.asarray(round_durations)
     cars_in_area = np.asarray(cars_in_area)
     num_rounds_per_car = np.asarray(num_rounds_per_car) / NUM_ITERATIONS
 
     return ProbRet(
-        probability=p,
+        probability=probability,
         num_cars=cars_in_area.mean(),
         num_rounds=num_rounds_per_car.mean(),
         round_duration=round_durations.mean()
