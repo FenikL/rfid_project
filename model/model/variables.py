@@ -10,7 +10,7 @@ TID_LENGTH = 64 + 1 + 16 + 16 # include CRC16 and RN16
 REQ_RN_LENGTH = 40
 NEW_RN16_LENGTH = 32 # +CRC16
 READ_LENGTH = 58
-AREA_LENGTH = 8
+AREA_LENGTH = 2 #8
 NUM_TAGS = 30
 INTERVAL = 1
 MICRO = 0.000001
@@ -41,7 +41,7 @@ def get_prob_of_trans_without_error(ber):
 def get_variables_from_tari(tari):
     trcal = 3 * tari * MICRO
     rtcal = 2.75 * tari * MICRO
-    blf = 8 / trcal
+    blf = 64 / (3*trcal)
     tpri = 1 / blf
     t1_and_t2 = 1.1*max(rtcal, 10*tpri) + 2*MICRO + 20*tpri
     t1_and_t3 = 2*1.1*max(rtcal, 10*tpri)
@@ -128,8 +128,8 @@ def get_duration_event(duration_from_reader, duration_from_tag, t1_and_t2, t1_an
 
 def get_variables_for_times_in_area(velocity):
     total_duration = INTERVAL*(NUM_TAGS - 1) + AREA_LENGTH/velocity
-    time_enter = [INTERVAL * tag for tag in range(NUM_TAGS)]
-    time_exit = [(AREA_LENGTH/velocity) + time_enter[tag] for tag in range(NUM_TAGS)]
+    time_enter = {tag: INTERVAL * tag for tag in range(NUM_TAGS)}
+    time_exit = {tag: (AREA_LENGTH/velocity) + time_enter[tag] for tag in range(NUM_TAGS)}
     return VariablesForTime(
         total_duration=total_duration,
         time_enter=time_enter,

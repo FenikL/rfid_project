@@ -1,6 +1,6 @@
 import pytest
 
-import variables
+from model import variables
 
 def test_ber_zero():
     ber_func = variables.get_prob_of_trans_without_error(0)
@@ -44,3 +44,29 @@ def test_bitrate_tari_6_25_and_m_1():
     bitrate_func = variables.get_bitrate(rtcal, blf, 1)
     assert bitrate_func.reader_bitrate == pytest.approx(116363, abs=1)
     assert bitrate_func.tag_bitrate == pytest.approx(426666, abs=1)
+
+def test_bitrate_tari_6_25_and_m_2():
+    rtcal = 171875e-10
+    trcal = 1875e-8
+    blf = 8 / trcal
+    bitrate_func = variables.get_bitrate(rtcal, blf, 2)
+    assert bitrate_func.reader_bitrate == pytest.approx(116363, abs=1)
+    assert bitrate_func.tag_bitrate == pytest.approx(213333, abs=1)
+
+def test_preambule_tari_6_25():
+    tari = 6.25
+    trcal = 1875e-8
+    rtcal = 171875e-10
+    preambule_func = variables.get_preamble(tari, rtcal, trcal, 0, 1)
+    assert preambule_func.t_sync_preamble == 359375e-10
+    assert preambule_func.t_full_preamble == pytest.approx(546875e-10, abs=1e-10)
+    assert preambule_func.tag_preamble_len == 6
+
+def test_duration_of_mes_from_reader_tari_6_25():
+    reader_bitrate = 116363
+    t_sync_preamble = 359375e-10
+    t_full_preamble = 546875e-10
+    t_message_func = variables.get_duration_of_mes_from_reader(reader_bitrate, t_full_preamble, t_sync_preamble)
+    assert t_message_func.query == pytest.approx(24375e-8, abs=1e-8)
+    assert t_message_func.qrep == pytest.approx(703126e-10, abs=1e-10)
+
