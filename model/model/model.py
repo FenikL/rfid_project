@@ -20,7 +20,7 @@ ForTagsInArea = namedtuple('ForTagsInArea', ['tags_in_area', 'num_rounds_per_tag
 
 NUM_ITERATIONS = 100
 
-def get_tags_in_area(time, time_enter, time_exit, list_of_tags):
+def get_tags_in_area(time, time_enter, time_exit, list_of_tags, num_rounds_per_tag):
     """
     Search for tags in the reading area
     :param time: an SNR of the received signal
@@ -36,14 +36,14 @@ def get_tags_in_area(time, time_enter, time_exit, list_of_tags):
             break
         if time_enter[tag] <= time < time_exit[tag]:
             tags_in_area.append(tag)
-            num_tags_in_area[tag] += 1
+            num_rounds_per_tag[tag] += 1
         if time >= time_exit[tag]:
             delete_first = True
     if delete_first:
         list_of_tags.pop(0)
     return ForTagsInArea(
         tags_in_area=tags_in_area,
-        num_rounds_per_tag=num_tags_in_a
+        num_rounds_per_tag=num_rounds_per_tag
     )
 
 def simulate_rn16_transmission(time, probability_success_message,
@@ -101,7 +101,7 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
     round_durations = []
     cars_in_area = []
     num_rounds = [0] * NUM_ITERATIONS
-    num_rounds_per_car = [0] * NUM_TAGS
+    num_rounds_per_tag = [0] * NUM_TAGS
 
     for _ in range(NUM_ITERATIONS):
         time = 0
@@ -114,9 +114,10 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
             #    tag for tag in range(NUM_TAGS) if (
             #    variables_for_time.time_enter[tag] < time < variables_for_time.time_exit[tag]
             #                )]
-            tags_in_area = get_tags_in_area(time, variables_for_time.time_enter,
-                                    variables_for_time.time_exit, list_of_tags)
-
+            tags_in_area_variables = get_tags_in_area(time, variables_for_time.time_enter,
+                                    variables_for_time.time_exit, list_of_tags, num_rounds_per_tag) 
+            tags_in_area = tags_in_area_variables.tags_in_area
+            num_rounds_per_tag = tags_in_area_variables.num_rounds_per_tag
             tags_slots = {tag: random.getrandbits(q_bit) for tag in tags_in_area}
             # -- Start of new round
             t_round_started = time
@@ -124,8 +125,8 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
             # (t_query - t_qrep) once at the beginning of each round:
             time += duration_from_reader.query - duration_from_reader.qrep
 
-            for tag in tags_in_area:
-                num_rounds_per_car[tag] += 1
+            #for tag in tags_in_area:
+                #num_rounds_per_car[tag] += 1
             for _ in range(range_slot):
                 responding_tags = [tag for tag in tags_in_area if tags_slots[tag] == 0]
                 num_responding_tags = len(responding_tags)
@@ -177,13 +178,13 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
     probability = np.mean(probability_this_iteration)
     round_durations = np.asarray(round_durations)
     cars_in_area = np.asarray(cars_in_area)
-    num_rounds_per_car = np.asarray(num_rounds_per_car) / NUM_ITERATIONS
+    num_rounds_per_tag = np.asarray(num_rounds_per_tag) / NUM_ITERATIONS
 
     return ProbRet(
         ber=ber,
         velocity=velocity,
         probability=probability,
         num_cars=cars_in_area.mean(),
-        num_rounds=num_rounds_per_car.mean(),
+        num_rounds=num_rounds_per_tag.mean(),
         round_duration=round_durations.mean()
         )
