@@ -1,3 +1,8 @@
+"""
+This module includes the main function in my model.
+The probability and other parameters are calculated.
+"""
+
 import random
 from collections import namedtuple
 
@@ -11,11 +16,19 @@ ProbRet = namedtuple('ProbRet', ('ber', 'velocity', 'probability', 'num_cars',
                      'num_rounds', 'round_duration'))
 ReturnForRn16 = namedtuple('ReturnForRn16', ['time', 'last_event_is_success'])
 ReturnForId = namedtuple('ReturnForId', ['last_event_is_success', 'identified'])
+ForTagsInArea = namedtuple('ForTagsInArea', ['tags_in_area', 'num_rounds_per_tag'])
 
 NUM_ITERATIONS = 100
 
-
 def get_tags_in_area(time, time_enter, time_exit, list_of_tags):
+    """
+    Search for tags in the reading area
+    :param time: an SNR of the received signal
+    :param time_enter: the de-synchronization
+    :param time_exit: the order of Miller encoding
+    :param list_of_tags: the symbol duration in seconds
+    :return: list of tags in area in the reading area at a given time
+    """
     tags_in_area = []
     delete_first = False
     for tag in list_of_tags:
@@ -23,11 +36,15 @@ def get_tags_in_area(time, time_enter, time_exit, list_of_tags):
             break
         if time_enter[tag] <= time < time_exit[tag]:
             tags_in_area.append(tag)
+            num_tags_in_area[tag] += 1
         if time >= time_exit[tag]:
             delete_first = True
     if delete_first:
         list_of_tags.pop(0)
-    return tags_in_area
+    return ForTagsInArea(
+        tags_in_area=tags_in_area,
+        num_rounds_per_tag=num_tags_in_a
+    )
 
 def simulate_rn16_transmission(time, probability_success_message,
                 duration_event_success, duration_event_invalid):
