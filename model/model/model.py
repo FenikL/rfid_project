@@ -22,12 +22,8 @@ NUM_ITERATIONS = 100
 
 def get_tags_in_area(time, time_enter, time_exit, list_of_tags, num_rounds_per_tag):
     """
-    Search for tags in the reading area
-    :param time: an SNR of the received signal
-    :param time_enter: the de-synchronization
-    :param time_exit: the order of Miller encoding
-    :param list_of_tags: the symbol duration in seconds
-    :return: list of tags in area in the reading area at a given time
+
+
     """
     tags_in_area = []
     delete_first = False

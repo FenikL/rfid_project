@@ -2,6 +2,8 @@ import numpy as np
 from scipy import special
 from numba import vectorize
 
+SPEED_OF_LIGHT = 299792458.0
+
 def dbm2w(value_dbm):
     return 10 ** (value_dbm / 10 - 3)
 
@@ -14,6 +16,7 @@ def db2lin(value_db):
 @vectorize
 def lin2db(value_linear):
     return 10 * np.log10(value_linear) if value_linear >= 1e-15 else -np.inf
+
 
 # noinspection PyUnusedLocal
 def signal2noise(*, rx_power, noise_power, **kwargs):
