@@ -12,13 +12,24 @@ from model import variables
 from model import snr_to_ber
 from model.variables import NUM_TAGS
 
-ProbRet = namedtuple('ProbRet', ('ber', 'velocity', 'probability', 'num_cars',
+ProbRet = namedtuple('ProbRet', ('velocity', 'probability', 'num_cars',
                      'num_rounds', 'round_duration'))
 ReturnForRn16 = namedtuple('ReturnForRn16', ['time', 'last_event_is_success'])
 ReturnForId = namedtuple('ReturnForId', ['last_event_is_success', 'identified'])
 ForTagsInArea = namedtuple('ForTagsInArea', ['tags_in_area', 'num_rounds_per_tag'])
 
 NUM_ITERATIONS = 100
+
+def get_ber_at_time(time, time_enter, m, preamble_duration, blf, velocity):
+    x = (time - time_enter) * velocity
+    rx_power = snr_to_ber.get_tag_power(x)
+    snr = snr_to_ber.get_snr(
+        rx_power=rx_power,
+        m=m,
+        preamble_duration=preamble_duration,
+    blf=blf)
+    ber = snr_to_ber.ber_over_rayleigh(snr)
+    return ber
 
 def get_tags_in_area(time, time_enter, time_exit, list_of_tags, num_rounds_per_tag):
     """
@@ -67,7 +78,7 @@ def simulate_id_transmission(last_event_is_success, probability_success_message,
         )
 
 def run_model(velocity, q_bit=2, tid_is_on=False,
-              tari=6.25, num_of_sym_per_bit=1, trext=0, rx_power=-78):
+              tari=6.25, num_of_sym_per_bit=1, trext=0):
     variables_by_tari = variables.get_variables_from_tari(tari)
     bitrate = variables.get_bitrate(variables_by_tari.rtcal,
                                     variables_by_tari.blf,
@@ -85,11 +96,6 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
                                                   duration_from_tag,
                                                   variables_by_tari.t1_and_t2,
                                                   variables_by_tari.t1_and_t3)
-    snr = snr_to_ber.get_snr(rx_power=rx_power ,m=num_of_sym_per_bit,
-                             preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
-                             blf=variables_by_tari.blf)
-    ber = snr_to_ber.ber_over_awgn(snr)
-    probability_success_message = variables.get_prob_of_trans_without_error(ber)
     variables_for_time = variables.get_variables_for_times_in_area(velocity)
 
     range_slot = 2 ** q_bit
@@ -114,7 +120,8 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
                                     variables_for_time.time_exit, list_of_tags, num_rounds_per_tag) 
             tags_in_area = tags_in_area_variables.tags_in_area
             num_rounds_per_tag = tags_in_area_variables.num_rounds_per_tag
-            tags_slots = {tag: random.getrandbits(q_bit) for tag in tags_in_area}
+            #tags_slots = {tag: random.getrandbits(q_bit) for tag in tags_in_area}
+            tags_slots = {tag: 0 for tag in tags_in_area}
             # -- Start of new round
             t_round_started = time
             # Since every round starts with QUERY, we can definitely add
@@ -132,6 +139,11 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
 
                 elif num_responding_tags == 1:
                     tag = responding_tags[0]
+                    ber = get_ber_at_time(time=time, time_enter=variables_for_time.time_enter[tag], m=num_of_sym_per_bit,
+                                          preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
+                                          blf=variables_by_tari.blf,
+                                          velocity=velocity)
+                    probability_success_message = variables.get_prob_of_trans_without_error(ber)
                     rn16 = simulate_rn16_transmission(time, probability_success_message.rn16,
                                       duration_event.success_slot, duration_event.invalid_rn16)
                     epcid = simulate_id_transmission(rn16.last_event_is_success,
@@ -139,6 +151,11 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
                     time = rn16.time
                     identified_epc[tag] = epcid.identified
                     if tid_is_on and epcid.last_event_is_success:
+                        ber = get_ber_at_time(time=time, time_enter=variables_for_time.time_enter[tag], m=num_of_sym_per_bit,
+                                          preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
+                                          blf=variables_by_tari.blf,
+                                          velocity=velocity)
+                        probability_success_message = variables.get_prob_of_trans_without_error(ber)
                         new_rn16 = simulate_rn16_transmission(time,
                                               probability_success_message.new_rn16,
                                               duration_event.success_tid,
@@ -177,7 +194,6 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
     num_rounds_per_tag = np.asarray(num_rounds_per_tag) / NUM_ITERATIONS
 
     return ProbRet(
-        ber=ber,
         velocity=velocity,
         probability=probability,
         num_cars=cars_in_area.mean(),
