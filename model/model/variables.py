@@ -13,6 +13,7 @@ READ_LENGTH = 58
 AREA_LENGTH = 12 #8
 NUM_TAGS = 30
 INTERVAL = 1
+DR = 64 / 3
 MICRO = 0.000001
 
 DurationFromReader = namedtuple('DurationFromReader', ['query', 'qrep', 'ack', 'req_rn', 'read'])
@@ -41,7 +42,7 @@ def get_prob_of_trans_without_error(ber):
 def get_variables_from_tari(tari):
     trcal = 3 * tari * MICRO
     rtcal = 2.75 * tari * MICRO
-    blf = 64 / (3*trcal)
+    blf = DR / trcal
     tpri = 1 / blf
     t1_and_t2 = 1.1*max(rtcal, 10*tpri) + 2*MICRO + 20*tpri
     t1_and_t3 = 2*1.1*max(rtcal, 10*tpri)
