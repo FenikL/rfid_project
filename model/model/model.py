@@ -11,6 +11,7 @@ import numpy as np
 from model import variables
 from model import snr_to_ber
 from model.variables import NUM_TAGS
+from model.variables import AREA_LENGTH
 
 ProbRet = namedtuple('ProbRet', ('velocity', 'probability', 'num_cars',
                      'num_rounds', 'round_duration'))
@@ -20,8 +21,25 @@ ForTagsInArea = namedtuple('ForTagsInArea', ['tags_in_area', 'num_rounds_per_tag
 
 NUM_ITERATIONS = 100
 
-def get_ber_at_time(time, time_enter, m, preamble_duration, blf, velocity):
-    x = (time - time_enter) * velocity
+def binary_search_ber(x, x_list, start, end):
+    if start > end:
+        return start - 1
+    mid = (start + end) // 2
+
+    #print(mid, start, end, x)
+    
+    if x == x_list[mid]:
+        return mid
+    
+    if x > x_list[mid]:
+        start = mid + 1
+        return binary_search_ber(x, x_list, start, end)
+    else:
+        end = mid - 1
+        return binary_search_ber(x, x_list, start, end)
+
+def get_ber_at_time(x, m, preamble_duration, blf, velocity):
+    #x = (time - time_enter) * velocity
     rx_power = snr_to_ber.get_tag_power(x)
     snr = snr_to_ber.get_snr(
         rx_power=rx_power,
@@ -79,7 +97,7 @@ def simulate_id_transmission(last_event_is_success, probability_success_message,
 
 def run_model(velocity, q_bit=2, tid_is_on=False,
               tari=6.25, num_of_sym_per_bit=1, trext=0):
-    variables_by_tari = variables.get_variables_from_tari(tari)
+    variables_by_tari = variables.get_variables_from_tari(tari)   
     bitrate = variables.get_bitrate(variables_by_tari.rtcal,
                                     variables_by_tari.blf,
                                     num_of_sym_per_bit)
@@ -97,6 +115,17 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
                                                   variables_by_tari.t1_and_t2,
                                                   variables_by_tari.t1_and_t3)
     variables_for_time = variables.get_variables_for_times_in_area(velocity)
+
+    x_list = np.linspace(0.0001, AREA_LENGTH+1, 10000)
+    ber_list = np.array([
+                get_ber_at_time(
+                    x=x,
+                    m=num_of_sym_per_bit,
+                    preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
+                    blf=variables_by_tari.blf,
+                    velocity=velocity
+                    ) for x in x_list
+                ])
 
     range_slot = 2 ** q_bit
     probability_this_iteration = []
@@ -139,10 +168,13 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
 
                 elif num_responding_tags == 1:
                     tag = responding_tags[0]
-                    ber = get_ber_at_time(time=time, time_enter=variables_for_time.time_enter[tag], m=num_of_sym_per_bit,
-                                          preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
-                                          blf=variables_by_tari.blf,
-                                          velocity=velocity)
+                    #ber = get_ber_at_time(time=time, time_enter=variables_for_time.time_enter[tag], m=num_of_sym_per_bit,
+                                          #preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
+                                          #blf=variables_by_tari.blf,
+                                          #velocity=velocity)
+
+                    x_value = AREA_LENGTH - ((time - variables_for_time.time_enter[tag]) * velocity)
+                    ber = ber_list[binary_search_ber(x=x_value, x_list=x_list, start=0, end=len(x_list))]
                     probability_success_message = variables.get_prob_of_trans_without_error(ber)
                     rn16 = simulate_rn16_transmission(time, probability_success_message.rn16,
                                       duration_event.success_slot, duration_event.invalid_rn16)
@@ -151,10 +183,12 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
                     time = rn16.time
                     identified_epc[tag] = epcid.identified
                     if tid_is_on and epcid.last_event_is_success:
-                        ber = get_ber_at_time(time=time, time_enter=variables_for_time.time_enter[tag], m=num_of_sym_per_bit,
-                                          preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
-                                          blf=variables_by_tari.blf,
-                                          velocity=velocity)
+                        #ber = get_ber_at_time(time=time, time_enter=variables_for_time.time_enter[tag], m=num_of_sym_per_bit,
+                                          #preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
+                                          #blf=variables_by_tari.blf,
+                                          #velocity=velocity)
+                        x_value = AREA_LENGTH - ((time - variables_for_time.time_enter[tag]) * velocity)
+                        ber = ber_list[binary_search_ber(x=x_value, x_list=x_list, start=0, end=len(x_list))]
                         probability_success_message = variables.get_prob_of_trans_without_error(ber)
                         new_rn16 = simulate_rn16_transmission(time,
                                               probability_success_message.new_rn16,
