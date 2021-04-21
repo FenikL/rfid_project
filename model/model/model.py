@@ -23,7 +23,7 @@ NUM_ITERATIONS = 100
 
 def binary_search_ber(x, x_list, start, end):
     if start > end:
-        return start - 1
+        return start
     mid = (start + end) // 2
 
     #print(mid, start, end, x)
@@ -175,6 +175,7 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
 
                     x_value = AREA_LENGTH - ((time - variables_for_time.time_enter[tag]) * velocity)
                     ber = ber_list[binary_search_ber(x=x_value, x_list=x_list, start=0, end=len(x_list))]
+                    print(x_value, ber, x_list[binary_search_ber(x=x_value, x_list=x_list, start=0, end=len(x_list))])
                     probability_success_message = variables.get_prob_of_trans_without_error(ber)
                     rn16 = simulate_rn16_transmission(time, probability_success_message.rn16,
                                       duration_event.success_slot, duration_event.invalid_rn16)

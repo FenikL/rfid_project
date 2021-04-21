@@ -11,7 +11,7 @@ REQ_RN_LENGTH = 40
 NEW_RN16_LENGTH = 32 # +CRC16
 READ_LENGTH = 58
 AREA_LENGTH = 12 #8
-NUM_TAGS = 3
+NUM_TAGS = 30
 INTERVAL = 1
 DR = 64 / 3
 MICRO = 0.000001
@@ -118,6 +118,16 @@ def get_duration_event(duration_from_reader, duration_from_tag, t1_and_t2, t1_an
     t_success_tid = (duration_from_reader.req_rn + 2*t1_and_t2 + duration_from_tag.new_rn16 +
                      duration_from_reader.read + duration_from_tag.tid)
     t_invalid_new_rn16 = duration_from_reader.req_rn + t1_and_t2 + duration_from_tag.new_rn16
+
+    #t_success_rn16 = duration_from_reader.qrep + t1_and_t2 + duration_from_tag.rn16 +
+                      #duration_from_reader.ack
+
+   #t_success_epcid = t1_and_t2 + duration_from_tag.epcid
+    #t_success_new_rn16 = duration_from_reader.req_rn + t1_and_t2 + duration_from_tag.new_rn16 +
+                         #duration_from_reader.read
+    #t_success_TID = t1_and_t2 + duration_from_tag.tid
+
+
     return DurationEvent(
         empty_slot=t_empty_slot,
         success_slot=t_success_slot,
