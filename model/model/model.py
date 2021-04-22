@@ -140,78 +140,93 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
         identified_epc_and_tid = [0] * NUM_TAGS
         list_of_tags = [tag for tag in range(NUM_TAGS)]
 
+        if random.getrandbits(1) == 1:
+            t_until_on = random.random() * variables.t_on
+        else:
+            time += random.random() * variables.t_off
+            t_until_on = time + variables.t_on
+
         while time < variables_for_time.total_duration:
+
+            #print(time, t_until_on)
             #tags_in_area = [
             #    tag for tag in range(NUM_TAGS) if (
             #    variables_for_time.time_enter[tag] < time < variables_for_time.time_exit[tag]
             #                )]
-            tags_in_area_variables = get_tags_in_area(time, variables_for_time.time_enter,
-                                    variables_for_time.time_exit, list_of_tags, num_rounds_per_tag) 
-            tags_in_area = tags_in_area_variables.tags_in_area
-            num_rounds_per_tag = tags_in_area_variables.num_rounds_per_tag
-            #tags_slots = {tag: random.getrandbits(q_bit) for tag in tags_in_area}
-            tags_slots = {tag: 0 for tag in tags_in_area}
-            # -- Start of new round
-            t_round_started = time
-            # Since every round starts with QUERY, we can definitely add
-            # (t_query - t_qrep) once at the beginning of each round:
-            time += duration_from_reader.query - duration_from_reader.qrep
 
-            #for tag in tags_in_area:
-                #num_rounds_per_car[tag] += 1
-            for _ in range(range_slot):
-                responding_tags = [tag for tag in tags_in_area if tags_slots[tag] == 0]
-                num_responding_tags = len(responding_tags)
+            if time < t_until_on:
+                tags_in_area_variables = get_tags_in_area(time, variables_for_time.time_enter,
+                                        variables_for_time.time_exit, list_of_tags, num_rounds_per_tag) 
+                tags_in_area = tags_in_area_variables.tags_in_area
+                num_rounds_per_tag = tags_in_area_variables.num_rounds_per_tag
+                tags_slots = {tag: random.getrandbits(q_bit) for tag in tags_in_area}
+                #tags_slots = {tag: 0 for tag in tags_in_area}
+                # -- Start of new round
+                t_round_started = time
+                # Since every round starts with QUERY, we can definitely add
+                # (t_query - t_qrep) once at the beginning of each round:
+                time += duration_from_reader.query - duration_from_reader.qrep
 
-                if num_responding_tags == 0:
-                    time += duration_event.empty_slot
+                #for tag in tags_in_area:
+                    #num_rounds_per_car[tag] += 1
+                for _ in range(range_slot):
+                    responding_tags = [tag for tag in tags_in_area if tags_slots[tag] == 0]
+                    num_responding_tags = len(responding_tags)
 
-                elif num_responding_tags == 1:
-                    tag = responding_tags[0]
-                    #ber = get_ber_at_time(time=time, time_enter=variables_for_time.time_enter[tag], m=num_of_sym_per_bit,
-                                          #preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
-                                          #blf=variables_by_tari.blf,
-                                          #velocity=velocity)
+                    if num_responding_tags == 0:
+                        time += duration_event.empty_slot
 
-                    x_value = AREA_LENGTH - ((time - variables_for_time.time_enter[tag]) * velocity)
-                    ber = ber_list[binary_search_ber(x=x_value, x_list=x_list, start=0, end=len(x_list))]
-                    print(x_value, ber, x_list[binary_search_ber(x=x_value, x_list=x_list, start=0, end=len(x_list))])
-                    probability_success_message = variables.get_prob_of_trans_without_error(ber)
-                    rn16 = simulate_rn16_transmission(time, probability_success_message.rn16,
-                                      duration_event.success_slot, duration_event.invalid_rn16)
-                    epcid = simulate_id_transmission(rn16.last_event_is_success,
-                                             probability_success_message.epcid, identified_epc[tag])
-                    time = rn16.time
-                    identified_epc[tag] = epcid.identified
-                    if tid_is_on and epcid.last_event_is_success:
+                    elif num_responding_tags == 1:
+                        tag = responding_tags[0]
                         #ber = get_ber_at_time(time=time, time_enter=variables_for_time.time_enter[tag], m=num_of_sym_per_bit,
-                                          #preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
-                                          #blf=variables_by_tari.blf,
-                                          #velocity=velocity)
+                                              #preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
+                                              #blf=variables_by_tari.blf,
+                                              #velocity=velocity)
+
                         x_value = AREA_LENGTH - ((time - variables_for_time.time_enter[tag]) * velocity)
                         ber = ber_list[binary_search_ber(x=x_value, x_list=x_list, start=0, end=len(x_list))]
+                        #print(x_value, ber, x_list[binary_search_ber(x=x_value, x_list=x_list, start=0, end=len(x_list))])
                         probability_success_message = variables.get_prob_of_trans_without_error(ber)
-                        new_rn16 = simulate_rn16_transmission(time,
-                                              probability_success_message.new_rn16,
-                                              duration_event.success_tid,
-                                              duration_event.invalid_new_rn16)
-                        tid = simulate_id_transmission(new_rn16.last_event_is_success,
-                                               probability_success_message.tid,
-                                               identified_epc_and_tid[tag])
-                        time = new_rn16.time
-                        identified_epc_and_tid[tag] = tid.identified
+                        rn16 = simulate_rn16_transmission(time, probability_success_message.rn16,
+                                          duration_event.success_slot, duration_event.invalid_rn16)
+                        epcid = simulate_id_transmission(rn16.last_event_is_success,
+                                                 probability_success_message.epcid, identified_epc[tag])
+                        time = rn16.time
+                        identified_epc[tag] = epcid.identified
+                        if tid_is_on and epcid.last_event_is_success:
+                            #ber = get_ber_at_time(time=time, time_enter=variables_for_time.time_enter[tag], m=num_of_sym_per_bit,
+                                              #preamble_duration=preamble.tag_preamble_len/bitrate.tag_bitrate,
+                                              #blf=variables_by_tari.blf,
+                                              #velocity=velocity)
+                            x_value = AREA_LENGTH - ((time - variables_for_time.time_enter[tag]) * velocity)
+                            ber = ber_list[binary_search_ber(x=x_value, x_list=x_list, start=0, end=len(x_list))]
+                            probability_success_message = variables.get_prob_of_trans_without_error(ber)
+                            new_rn16 = simulate_rn16_transmission(time,
+                                                  probability_success_message.new_rn16,
+                                                  duration_event.success_tid,
+                                                  duration_event.invalid_new_rn16)
+                            tid = simulate_id_transmission(new_rn16.last_event_is_success,
+                                                   probability_success_message.tid,
+                                                   identified_epc_and_tid[tag])
+                            time = new_rn16.time
+                            identified_epc_and_tid[tag] = tid.identified
 
-                else:
-                    time += duration_event.collided_slot
-
-                # Decrease slot counts:
-                for tag in tags_in_area:
-
-                    if tags_slots[tag] > 0:
-                        tags_slots[tag] = tags_slots[tag] - 1
 
                     else:
-                        tags_slots[tag] = 0xFFFF
+                        time += duration_event.collided_slot
+
+                    # Decrease slot counts:
+                    for tag in tags_in_area:
+
+                        if tags_slots[tag] > 0:
+                            tags_slots[tag] = tags_slots[tag] - 1
+
+                        else:
+                            tags_slots[tag] = 0xFFFF
+
+            else:
+                time = t_until_on + variables.t_off
+                t_until_on += variables.t_off + variables.t_on 
 
             # -- End of round
             round_durations.append(time - t_round_started)
