@@ -14,8 +14,8 @@ AREA_LENGTH = 12 #8
 NUM_TAGS = 30
 INTERVAL = 1
 DR = 64 / 3
-t_on = 2000e-3
-t_off = 100e-3
+t_on = 100e-3
+t_off = 320e-3
 MICRO = 0.000001
 
 DurationFromReader = namedtuple('DurationFromReader', ['query', 'qrep', 'ack', 'req_rn', 'read'])
