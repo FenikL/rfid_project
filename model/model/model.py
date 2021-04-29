@@ -26,8 +26,6 @@ def binary_search_ber(x, x_list, start, end):
         return start
     mid = (start + end) // 2
 
-    #print(mid, start, end, x)
-    
     if x == x_list[mid]:
         return mid
     
@@ -39,7 +37,6 @@ def binary_search_ber(x, x_list, start, end):
         return binary_search_ber(x, x_list, start, end)
 
 def get_ber_at_time(x, m, preamble_duration, blf, velocity):
-    #x = (time - time_enter) * velocity
     rx_power = snr_to_ber.get_tag_power(x)
     snr = snr_to_ber.get_snr(
         rx_power=rx_power,
@@ -140,19 +137,13 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
         identified_epc_and_tid = [0] * NUM_TAGS
         list_of_tags = [tag for tag in range(NUM_TAGS)]
 
-        if random.getrandbits(1) == 1:
+        if random.getrandbits(1):
             t_until_on = random.random() * variables.t_on
         else:
             time += random.random() * variables.t_off
             t_until_on = time + variables.t_on
 
         while time < variables_for_time.total_duration:
-
-            #print(time, t_until_on)
-            #tags_in_area = [
-            #    tag for tag in range(NUM_TAGS) if (
-            #    variables_for_time.time_enter[tag] < time < variables_for_time.time_exit[tag]
-            #                )]
 
             if time < t_until_on:
                 tags_in_area_variables = get_tags_in_area(time, variables_for_time.time_enter,
