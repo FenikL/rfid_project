@@ -27,8 +27,8 @@ def binary_search_ber(x, x_list, start, end):
     mid = (start + end) // 2
 
     if x == x_list[mid]:
+
         return mid
-    
     if x > x_list[mid]:
         start = mid + 1
         return binary_search_ber(x, x_list, start, end)
@@ -94,7 +94,7 @@ def simulate_id_transmission(last_event_is_success, probability_success_message,
 
 def run_model(velocity, q_bit=2, tid_is_on=False,
               tari=6.25, num_of_sym_per_bit=1, trext=0):
-    variables_by_tari = variables.get_variables_from_tari(tari)   
+    variables_by_tari = variables.get_variables_from_tari(tari)
     bitrate = variables.get_bitrate(variables_by_tari.rtcal,
                                     variables_by_tari.blf,
                                     num_of_sym_per_bit)
@@ -147,7 +147,7 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
 
             if time < t_until_on:
                 tags_in_area_variables = get_tags_in_area(time, variables_for_time.time_enter,
-                                        variables_for_time.time_exit, list_of_tags, num_rounds_per_tag) 
+                                        variables_for_time.time_exit, list_of_tags, num_rounds_per_tag)
                 tags_in_area = tags_in_area_variables.tags_in_area
                 num_rounds_per_tag = tags_in_area_variables.num_rounds_per_tag
                 tags_slots = {tag: random.getrandbits(q_bit) for tag in tags_in_area}
@@ -217,7 +217,7 @@ def run_model(velocity, q_bit=2, tid_is_on=False,
 
             else:
                 time = t_until_on + variables.t_off
-                t_until_on += variables.t_off + variables.t_on 
+                t_until_on += variables.t_off + variables.t_on
 
             # -- End of round
             round_durations.append(time - t_round_started)
